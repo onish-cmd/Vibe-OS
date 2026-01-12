@@ -22,14 +22,16 @@ jobs:
 
       - name: Build Kernel
         run: cargo build --release --target riscv64gc-unknown-none-elf
+        working-directory: krnl
 
       - name: Create .img Binary
         run: |
           # Use llvm-objcopy to turn the ELF into a raw binary
           # This is the file you would flash to the Milk-V Duo
-          rust-objcopy -O binary \
+            rust-objcopy -O binary \
             target/riscv64gc-unknown-none-elf/release/kernel \
-            onish-kernel.img
+            .. onish-kernel.img
+        working-directory: krnl
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
