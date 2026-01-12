@@ -31,7 +31,7 @@ jobs:
         run: |
           # Use llvm-objcopy to turn the ELF into a raw binary
           # This is the file you would flash to the Milk-V Duo
-            llvm-objcopy -O binary target/riscv64gc-unknown-none-elf/release/onish-kernel ../onish-kernel.img
+            rust-objcopy -O binary target/riscv64gc-unknown-none-elf/release/onish-kernel ../onish-kernel.img
         working-directory: krnl
 
       - name: Upload Build Artifact
