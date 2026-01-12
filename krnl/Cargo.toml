@@ -8,3 +8,9 @@ path = "src/boot.rs"
 [profile.release]
 panic = "abort"
 lto = true        # Link Time Optimization (makes the image smaller)
+
+[depenencies]
+fdt = "0.1.5"
+
+[dependencies]
+fdt = "0.1.5"

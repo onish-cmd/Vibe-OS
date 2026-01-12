@@ -1,8 +1,11 @@
 #![no_std]
 #![no_main]
 
+extern crate fdt;
+
 use core::panic::PanicInfo;
 use core::arch::global_asm;
+use fdt::Fdt;
 
 global_asm!(include_str!("boot.S"));
 
@@ -17,7 +20,12 @@ fn print(str: &str) {
 }
 
 #[no_mangle]
-pub extern "C" fn kmain() -> ! {
+pub extern "C" fn kmain(_hartid: usize, fdt_ptr: usize) -> ! {
+    let fdt = unsafe { fdt::Fdt::from_ptr(fdt_ptr as *const u8) }.unwrap();
+    let uart = fdt.chosen()
+    .stdout()
+    .and_then(|s| s.node().reg())
+    .and_then(|mut r| r.next())
     print("NISH");
     loop {}
 }
