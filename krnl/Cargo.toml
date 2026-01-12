@@ -3,7 +3,7 @@ name = "kernel"
 
 [[bin]]
 name = "onish-kernel"
-path = "src/main.rs"
+path = "src/boot.rs"
 
 [profile.release]
 panic = "abort"
