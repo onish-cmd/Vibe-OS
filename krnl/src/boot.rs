@@ -2,6 +2,9 @@
 #![no_main]
 
 use core::panic::PanicInfo;
+use core::arch::global_asm;
+
+global_asm!(include_str!("boot.S"));
 
 #[no_mangle]
 fn print(str: &str) {
@@ -20,7 +23,7 @@ pub extern "C" fn kmain() -> ! {
 }
 
 #[panic_handler]
-fn panic(_info: &PanicInfo) {
+fn panic(_info: &PanicInfo) -> ! {
     print("PANIC");
     loop {}
 }

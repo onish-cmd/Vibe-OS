@@ -1,0 +1,12 @@
+{
+    "rust-analyzer.cargo.target": "riscv64gc-unknown-none-elf",
+    "rust-analyzer.checkOnSave.command": "check",
+    "rust-analyzer.procMacro.enable": false,
+    "rust-analyzer.cargo.allTargets": false,
+    "rust-analyzer.diagnostics.disabled": [
+        "unresolved-proc-macro",
+        "unlinked-file"
+    ],
+    "rust-analyzer.checkOnSave.allTargets": false,
+    "rust-analyzer.cargo.sysroot": "discover",
+}
