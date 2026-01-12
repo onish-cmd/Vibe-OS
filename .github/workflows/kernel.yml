@@ -1,0 +1,38 @@
+name: Onish-Kernel CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: riscv64gc-unknown-none-elf
+          components: llvm-tools-preview
+
+      - name: Build Kernel
+        run: cargo build --release --target riscv64gc-unknown-none-elf
+
+      - name: Create .img Binary
+        run: |
+          # Use llvm-objcopy to turn the ELF into a raw binary
+          # This is the file you would flash to the Milk-V Duo
+          rust-objcopy -O binary \
+            target/riscv64gc-unknown-none-elf/release/onish-kernel \
+            onish-kernel.img
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-image
+          path: onish-kernel.img
