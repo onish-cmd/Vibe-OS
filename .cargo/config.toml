@@ -1,4 +1,4 @@
 [target.riscv64gc-unknown-none-elf]
 rustflags = [
-        "-C", "link-arg=-Tlink.ld",
+        "-C", "link-arg=-Tkrnl/link.ld",
 ]
