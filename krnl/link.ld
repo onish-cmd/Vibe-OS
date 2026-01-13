@@ -5,7 +5,7 @@ ENTRY( _start )
 SECTIONS
 {
   /* QEMU Virt machine RAM starts here */
-  . = 0x80000000;
+  . = 0x80200000;
 
   /* 1. The Code (including our boot.S _start) */
   .text : {
