@@ -26,6 +26,22 @@ fn print(str: &str) {
 
 #[no_mangle]
 pub extern "C" fn kmain(_hartid: usize, fdt_ptr: usize) -> ! {
+
+    let uart = 0x1000_0000 as *mut u8;
+    unsafe {
+        // Write 'A' directly to UART
+        core::ptr::write_volatile(uart, b'A');
+    }
+
+    // TEST 2: Check the FDT Pointer alignment
+    if fdt_ptr % 8 != 0 {
+        // If the pointer is bad, we'd never have survived the fdt crate
+        unsafe { core::ptr::write_volatile(uart, b'!'); }
+    }
+
+    // Now try the real print
+    print(" -> ONISH BOOTED\n\r");
+
     let fdt = unsafe { fdt::Fdt::from_ptr(fdt_ptr as *const u8) }.unwrap();
     let uart: *mut u8 = fdt.chosen()
     .stdout()
