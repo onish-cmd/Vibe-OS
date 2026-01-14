@@ -4,8 +4,7 @@
 _start:
     mv s1, a1
     mv s0, a0
-    csrr t0, mhartid
-    bnez t0, park
+    bnez s0, park
 
     la sp, __stack_top
 
