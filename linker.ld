@@ -5,6 +5,7 @@ PHDRS
     text    PT_LOAD FLAGS(5); /* 5 = Read + Execute */
     rodata  PT_LOAD FLAGS(4); /* 4 = Read Only */
     data    PT_LOAD FLAGS(6); /* 6 = Read + Write */
+    dynamic PT_DYNAMIC FLAGS(6);
 }
 
 SECTIONS
@@ -37,4 +38,8 @@ SECTIONS
         *(.bss .bss.*)
         *(COMMON)
     } :data
+
+    .dynamic : {
+        KEEP(*(.dynamic))
+    } :data :dynamic
 }
