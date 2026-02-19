@@ -1,4 +1,5 @@
 [target.x86_64-unknown-none]
+linker = "rust-lld"
 rustflags = [
     "-C", "relocation-model=pic",
     "-C", "link-arg=-Wl,-pie",
