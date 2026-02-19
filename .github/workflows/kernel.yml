@@ -44,7 +44,6 @@ jobs:
           xorriso -as mkisofs \
             -b limine-bios-cd.bin \
             -no-emul-boot -boot-load-size 4 -boot-info-table \
-            --softlinks-as-files \
             -iso-level 3 \
             -V "VIBEOS" \
             iso_root -o VibeOS.iso
