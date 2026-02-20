@@ -67,6 +67,9 @@ impl Cursor {
             height,
             font: None,
         }
+        unsafe {
+            clear(self.color)
+        }
     }
 
     /// Writes a single pixel to the framebuffer
