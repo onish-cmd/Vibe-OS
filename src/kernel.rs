@@ -74,9 +74,9 @@ pub extern "C" fn _start() -> ! {
     let mut heap_addr: u64 = 0;
 
     for entry in entries {
-        // We cast the entry_type to u64 and check for 0 (USABLE)
-        // This makes us immune to the crate's Enum path changes.
-        if entry.entry_type as u64 == 0 && entry.length >= heap_size as u64 {
+        // We use the full path. If it's not in 'memory_map', 
+        // the compiler error will finally tell us the EXACT correct path.
+        if entry.entry_type == limine::memory_map::MemoryMapEntryType::Usable && entry.length >= heap_size as u64 {
             heap_addr = entry.base;
             break;
         }
