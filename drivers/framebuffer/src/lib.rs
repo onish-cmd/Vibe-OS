@@ -56,7 +56,7 @@ pub struct Cursor {
 }
 
 impl Cursor {
-    pub fn new(&self, ptr: *mut u32, width: u64, height: u64) -> Self {
+    pub fn new(ptr: *mut u32, width: u64, height: u64) -> Self {
         Self {
             x: 0,
             y: 0,
@@ -67,9 +67,6 @@ impl Cursor {
             height,
             font: None,
         };
-        unsafe {
-            self.clear(self.color);
-        }
     }
 
     /// Writes a single pixel to the framebuffer
