@@ -19,6 +19,22 @@ use core::arch::asm;
 use vibe_framebuffer::Cursor;
 use spleen_font::FONT_16X32;
 use core::fmt::{self, Write};
+use limine::request::MemoryMapRequest;
+use linked_list_allocator::LockedHeap;
+
+#[global_allocator]
+static ALLOCATOR: LockedHeap = LockedHeap::empty();
+
+pub fn init_heap(start: usize, size: usize) {
+    unsafe {
+        ALLOCATOR.lock().init(start, size);
+    }
+}
+
+#[alloc_error_handler]
+fn alloc_error_handler(layout: core::alloc::Layout) -> ! {
+    panic!("VIBE OS: Heap Allocation Error - Layout: {:?}", layout);
+}
 
 static FRAMEBUFFER_REQUEST: FramebufferRequest = FramebufferRequest::new();
 static mut UI_CURSOR: Option<Cursor> = None;
@@ -38,8 +54,22 @@ pub fn clear_screen(color: u32) {
     }
 }
 
+static MEMMAP_REQUEST: MemoryMapRequest = MemoryMapRequest::new();
+
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
+    let memmap = MEMMAP_REQUEST.get_response().get().memmap();
+    let heap_size = 32 * 1024 * 1024;
+    let mut heap_addr: u64 = 0;
+
+    for entry in memmap {
+        if entry.typ == limine::MemoryMapEntryType::USABLE && entry.len >= heap_size as u64 {
+            heap_addr = entry.base;
+            break; 
+        }
+    }
+    if heap_addr == 0 { panic!("Could not find enough RAM for Vibe OS heap!"); }
+    crate::allocator::init_heap(heap_addr as usize, heap_size);
     unsafe { 
         if let Some(fb_response) = FRAMEBUFFER_REQUEST.get_response() {
             if let Some(fb) = fb_response.framebuffers().next() {
@@ -56,14 +86,17 @@ pub extern "C" fn _start() -> ! {
             }
         }
     }
-    println!("Vibe OS is alive!");
-    let numx = 2;
-    let numy = 4;
-    let result = numx + numy;
-    println!("fmt test: {} + {} = {}", numx, numy, result);
-    println!("Lets panic!");
-    panic!();
-    
+
+    extern crate alloc;
+    use alloc::string::String;
+    use alloc::vec::Vec;
+
+    let mut vibe_list = Vec::new();
+    vibe_list.push(String::from("Vibe"));
+    vibe_list.push(String::from("OS"));
+
+    println!("Heap Initialized! Data: {} {}", vibe_list[0], vibe_list[1]);
+
     loop { unsafe { asm!("hlt") } }
 }
 
