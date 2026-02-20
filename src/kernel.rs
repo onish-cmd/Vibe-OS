@@ -1,6 +1,7 @@
 // Hey! I hope like my project, I'm 11 and coding on a tablet TYSM.
 #![no_std]
 #![no_main]
+#![feature(alloc_error_handler)]
 
 #[macro_export]
 macro_rules! print {
