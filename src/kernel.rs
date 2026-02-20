@@ -14,13 +14,13 @@ macro_rules! println {
 }
 
 extern crate limine;
-use limine::request::FramebufferRequest;
 use core::arch::asm;
-use vibe_framebuffer::Cursor;
-use spleen_font::FONT_16X32;
 use core::fmt::{self, Write};
+use limine::request::FramebufferRequest;
 use limine::request::MemoryMapRequest;
 use linked_list_allocator::LockedHeap;
+use spleen_font::FONT_16X32;
+use vibe_framebuffer::Cursor;
 
 #[global_allocator]
 static ALLOCATOR: LockedHeap = LockedHeap::empty();
@@ -47,10 +47,10 @@ pub fn _print(args: fmt::Arguments) {
     }
 }
 pub fn clear_screen(color: u32) {
-    unsafe { 
+    unsafe {
         if let Some(ref mut cursor) = UI_CURSOR {
             cursor.clear(color);
-        }   
+        }
     }
 }
 
@@ -65,21 +65,19 @@ pub extern "C" fn _start() -> ! {
     for entry in memmap {
         if entry.typ == limine::MemoryMapEntryType::USABLE && entry.len >= heap_size as u64 {
             heap_addr = entry.base;
-            break; 
+            break;
         }
     }
-    if heap_addr == 0 { panic!("Could not find enough RAM for Vibe OS heap!"); }
+    if heap_addr == 0 {
+        panic!("Could not find enough RAM for Vibe OS heap!");
+    }
     crate::allocator::init_heap(heap_addr as usize, heap_size);
-    unsafe { 
+    unsafe {
         if let Some(fb_response) = FRAMEBUFFER_REQUEST.get_response() {
             if let Some(fb) = fb_response.framebuffers().next() {
                 let font = vibe_framebuffer::Font::new(FONT_16X32);
-                let mut cursor = Cursor::new(
-                    fb.addr() as *mut u32,
-                    fb.width(),
-                    fb.height()
-                );
-                
+                let mut cursor = Cursor::new(fb.addr() as *mut u32, fb.width(), fb.height());
+
                 cursor.font = Some(font); // Attach font to the local variable
                 cursor.clear(cursor.color);
                 UI_CURSOR = Some(cursor); // Now move it to the global static
@@ -97,11 +95,24 @@ pub extern "C" fn _start() -> ! {
 
     println!("Heap Initialized! Data: {} {}", vibe_list[0], vibe_list[1]);
 
-    loop { unsafe { asm!("hlt") } }
+    loop {
+        unsafe { asm!("hlt") }
+    }
 }
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
-    println!("KERNEL PANIC: {}", info);
-    loop { unsafe { asm!("hlt") } }
+    // Switch to Tokyo Night "Storm" Red for the panic
+    unsafe {
+        if let Some(ref mut cursor) = UI_CURSOR {
+            cursor.color_fg = 0xf7768e;
+            println!("\n[ VIBE OS FATAL ERROR ]");
+            println!("------------------------");
+            println!("{}", info);
+            cursor.blit(); // Final push to Mi TV
+        }
+    }
+    loop {
+        unsafe { core::arch::asm!("hlt") }
+    }
 }

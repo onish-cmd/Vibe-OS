@@ -1,9 +1,9 @@
 #![no_std]
 #![feature(abi_x86_interrupt)]
 
+use core::fmt;
 use x86_64::instructions::port::Port;
 use x86_64::structures::idt::InterruptStackFrame;
-use core::fmt;
 
 // --- PSF2 Font Structures ---
 #[repr(C)]
@@ -28,9 +28,14 @@ pub struct Font<'a> {
 impl<'a> Font<'a> {
     pub fn new(data: &'a [u8]) -> Self {
         let header = unsafe { &*(data.as_ptr() as *const Psf2Header) };
-        if header.magic != PSF2_MAGIC { panic!("Invalid PSF2 font!"); }
+        if header.magic != PSF2_MAGIC {
+            panic!("Invalid PSF2 font!");
+        }
         let glyphs_start = header.header_size as usize;
-        Self { header, glyphs: &data[glyphs_start..] }
+        Self {
+            header,
+            glyphs: &data[glyphs_start..],
+        }
     }
 
     pub fn get_glyph(&self, c: char) -> &[u8] {
@@ -100,59 +105,64 @@ impl Cursor {
             core::ptr::copy(
                 self.backbuffer_ptr.add(row_size),
                 self.backbuffer_ptr,
-                total_size - row_size
+                total_size - row_size,
             );
             // Clear the new line
             let bottom_ptr = self.backbuffer_ptr.add(total_size - row_size);
-            for i in 0..row_size { *bottom_ptr.add(i) = self.color_bg; }
+            for i in 0..row_size {
+                *bottom_ptr.add(i) = self.color_bg;
+            }
         }
         self.y -= f_height;
         self.dirty = true;
     }
-pub fn draw_char(&mut self, c: char) {
-    let f_height = self.font.as_ref().map_or(16, |f| f.header.height as usize);
-    let f_width = self.font.as_ref().map_or(8, |f| f.header.width as usize);
+    pub fn draw_char(&mut self, c: char) {
+        let f_height = self.font.as_ref().map_or(16, |f| f.header.height as usize);
+        let f_width = self.font.as_ref().map_or(8, |f| f.header.width as usize);
 
-    if c == '\n' {
-        self.x = 0;
-        self.y += f_height;
-    } else {
-        if self.x + f_width > self.width {
+        if c == '\n' {
             self.x = 0;
             self.y += f_height;
-        }
-
-        // We get the glyph and the metrics out immediately
-        let (glyph, bytes_per_row) = if let Some(ref font) = self.font {
-            (font.get_glyph(c), (font.header.width + 7) / 8)
         } else {
-            return; // No font, nothing to draw
-        };
+            if self.x + f_width > self.width {
+                self.x = 0;
+                self.y += f_height;
+            }
 
-        // Now we loop. Since 'glyph' is a reference to the data in the font 
-        // but NOT a reference to 'self' anymore, the borrow checker is happy!
-        for py in 0..f_height {
-            for px in 0..f_width {
-                let byte = glyph[(py * bytes_per_row as usize + px / 8)];
-                if (byte >> (7 - (px % 8))) & 1 == 1 {
-                    unsafe { 
-                        // Now we can borrow self as mutable!
-                        self.write_pixel(self.x + px, self.y + py, self.color_fg); 
+            // We get the glyph and the metrics out immediately
+            let (glyph, bytes_per_row) = if let Some(ref font) = self.font {
+                (font.get_glyph(c), (font.header.width + 7) / 8)
+            } else {
+                return; // No font, nothing to draw
+            };
+
+            // Now we loop. Since 'glyph' is a reference to the data in the font
+            // but NOT a reference to 'self' anymore, the borrow checker is happy!
+            for py in 0..f_height {
+                for px in 0..f_width {
+                    let byte = glyph[(py * bytes_per_row as usize + px / 8)];
+                    if (byte >> (7 - (px % 8))) & 1 == 1 {
+                        unsafe {
+                            // Now we can borrow self as mutable!
+                            self.write_pixel(self.x + px, self.y + py, self.color_fg);
+                        }
                     }
                 }
             }
+            self.x += f_width;
         }
-        self.x += f_width;
-    }
 
-    if self.y + f_height > self.height {
-        self.scroll_up();
+        if self.y + f_height > self.height {
+            self.scroll_up();
+        }
     }
 }
 
 impl fmt::Write for Cursor {
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        for c in s.chars() { self.draw_char(c); }
+        for c in s.chars() {
+            self.draw_char(c);
+        }
         Ok(())
     }
 }
