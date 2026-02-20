@@ -15,27 +15,28 @@ impl Cursor {
         Self {
             x: 0,
             y: 0,
-            color: 0xFFFFFFFF,
+            color: 0xFFFFFFFF, // Default White
             fb_ptr: ptr,
             width,
             height,
         }
     }
 
+    /// Writes a single pixel to the framebuffer
     pub unsafe fn write_pixel(&self, x: usize, y: usize, color: u32) {
-        // Safety check to prevent crashing if x/y are off-screen
         if (x as u64) < self.width && (y as u64) < self.height {
             let offset = (y * self.width as usize) + x;
+            // .add() is unsafe, hence the wrapping function or block
             *self.fb_ptr.add(offset) = color;
         }
     }
 
+    /// Clears the entire screen with a specific color
     pub unsafe fn clear(&mut self, color: u32) {
-        cursor.color = color;
-        for i in 0..(cursor.width * cursor.height) {
-            unsafe {
-                *cursor.fb_ptr.add(i as usize) = cursor.color;
-            }
+        self.color = color;
+        let total_pixels = (self.width * self.height) as usize;
+        for i in 0..total_pixels {
+            *self.fb_ptr.add(i) = self.color;
         }
     }
 }
