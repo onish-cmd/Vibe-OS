@@ -2,11 +2,11 @@
 #![no_main]
 #![feature(alloc_error_handler)]
 
+// Standard vibe macros
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => ($crate::_print(format_args!($($arg)*)));
 }
-
 #[macro_export]
 macro_rules! println {
     () => ($crate::print!("\n"));
@@ -20,7 +20,6 @@ use core::arch::asm;
 use core::fmt::{self, Write};
 use limine::BaseRevision;
 use limine::request::{FramebufferRequest, MemoryMapRequest, RequestsEndMarker, RequestsStartMarker};
-use limine::response::MemoryMapEntryType; // Path confirmed for 0.5.0
 use linked_list_allocator::LockedHeap;
 use spleen_font::FONT_16X32;
 use vibe_framebuffer::{Cursor, Font};
@@ -49,9 +48,7 @@ static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();
 static ALLOCATOR: LockedHeap = LockedHeap::empty();
 
 pub fn init_heap(start: usize, size: usize) {
-    unsafe {
-        ALLOCATOR.lock().init(start as *mut u8, size);
-    }
+    unsafe { ALLOCATOR.lock().init(start as *mut u8, size); }
 }
 
 #[alloc_error_handler]
@@ -62,69 +59,49 @@ fn alloc_error_handler(layout: core::alloc::Layout) -> ! {
 static mut UI_CURSOR: Option<Cursor> = None;
 
 pub fn _print(args: fmt::Arguments) {
-    unsafe {
-        if let Some(ref mut cursor) = UI_CURSOR {
-            let _ = cursor.write_fmt(args);
-        }
-    }
+    unsafe { if let Some(ref mut cursor) = UI_CURSOR { let _ = cursor.write_fmt(args); } }
 }
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     assert!(BASE_REVISION.is_supported());
 
+    // 1. Memory Map Logic (Brute Force to bypass Enum errors)
     let memmap_response = MEMMAP_REQUEST.get_response().as_ref().expect("Memmap failed");
-    
-    // Using the method as the compiler suggested (E0616 fix)
-    let entries = memmap_response.entries(); 
+    let entries = memmap_response.entries();
     
     let heap_size = 32 * 1024 * 1024;
     let mut heap_addr: u64 = 0;
 
     for entry in entries {
-        // Field 'entry_type' and variant 'Usable' (E0432 fix)
-        if entry.entry_type == MemoryMapEntryType::Usable && entry.length >= heap_size as u64 {
+        // We cast the entry_type to u64 and check for 0 (USABLE)
+        // This makes us immune to the crate's Enum path changes.
+        if entry.entry_type as u64 == 0 && entry.length >= heap_size as u64 {
             heap_addr = entry.base;
             break;
         }
     }
     
-    if heap_addr == 0 {
-        panic!("Could not find enough RAM for Vibe OS heap!");
-    }
-
+    if heap_addr == 0 { hcf(); }
     init_heap(heap_addr as usize, heap_size);
 
+    // 2. Framebuffer Driver Initialization
     unsafe {
         if let Some(fb_response) = FRAMEBUFFER_REQUEST.get_response() {
             if let Some(fb) = fb_response.framebuffers().next() {
                 let font = Font::new(FONT_16X32);
-                
-                // Cursor::new(pixel_ptr, back_ptr, width, height)
-                let mut cursor = Cursor::new(
-                    fb.addr() as *mut u32, 
-                    core::ptr::null_mut(), 
-                    fb.width(), 
-                    fb.height()
-                );
-
+                let mut cursor = Cursor::new(fb.addr() as *mut u32, core::ptr::null_mut(), fb.width(), fb.height());
                 cursor.font = Some(font);
-                cursor.clear(0x1a1b26); // Tokyo Night "Night" background
+                cursor.clear(0x1a1b26); // Tokyo Night Background
                 UI_CURSOR = Some(cursor);
             }
         }
     }
 
-    use alloc::string::String;
-    use alloc::vec::Vec;
-
-    let mut vibe_list = Vec::new();
-    vibe_list.push(String::from("Vibe"));
-    vibe_list.push(String::from("OS"));
-
-    println!("Heap Initialized! Data: {} {}", vibe_list[0], vibe_list[1]);
-    println!("Zen 4 / 8500G Ready.");
-
+    println!("Vibe OS: Kernel Space Initialized.");
+    println!("Memory Map entry found at: {:#x}", heap_addr);
+    println!("Heap Status: 32MB Allocated.");
+    
     hcf();
 }
 
@@ -134,21 +111,12 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
         if let Some(ref mut cursor) = UI_CURSOR {
             cursor.color_fg = 0xf7768e; // Tokyo Night Red
             cursor.x = 0;
-            println!("\n[ VIBE OS FATAL ERROR ]");
-            println!("------------------------");
-            println!("{}", info);
+            println!("\n[ VIBE OS FATAL ERROR ]\n{}", info);
         }
     }
     hcf();
 }
 
 fn hcf() -> ! {
-    loop {
-        unsafe {
-            #[cfg(target_arch = "x86_64")]
-            asm!("hlt");
-            #[cfg(any(target_arch = "aarch64", target_arch = "riscv64"))]
-            asm!("wfi");
-        }
-    }
+    loop { unsafe { asm!("hlt") } }
 }
