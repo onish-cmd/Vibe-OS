@@ -3,10 +3,9 @@
 #![no_main]
 
 extern crate limine;
+extern crate vibe_framebuffer;
 use limine::request::FramebufferRequest;
 use core::arch::asm;
-use vibe_framebuffer;
-use spin::Mutex;
 
 static FRAMEBUFFER_REQUEST: FramebufferRequest = FramebufferRequest::new();
 static mut UI_CURSOR: Option<vibe_framebuffer::Cursor> = None;
@@ -20,8 +19,6 @@ pub extern "C" fn _start() -> ! {
                 fb.width(), 
                 fb.height()
             ));
-
-            *UI_CURSOR.lock() = Some(cursor);
         }
     }
     clear_screen(0x001A1B26);
