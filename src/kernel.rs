@@ -74,9 +74,12 @@ pub extern "C" fn _start() -> ! {
     let mut heap_addr: u64 = 0;
 
     for entry in entries {
-        // We use the full path. If it's not in 'memory_map', 
-        // the compiler error will finally tell us the EXACT correct path.
-        if entry.entry_type == limine::memory_map::MemoryMapEntryType::Usable && entry.length >= heap_size as u64 {
+        // We use 'unsafe' to treat the enum as a raw u64 regardless of its type name.
+        // This is the "Nuclear Option" that finally beats the API changes.
+        let raw_type = unsafe { core::mem::transmute::<_, u64>(entry.entry_type) };
+
+        // In Limine, the 'Usable' variant is always represented by the integer 0.
+        if raw_type == 0 && entry.length >= heap_size as u64 {
             heap_addr = entry.base;
             break;
         }
