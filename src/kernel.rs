@@ -20,15 +20,6 @@ use vibe_framebuffer::Cursor;
 use spleen_font::FONT_16X32;
 use core::fmt::{self, Write};
 
-impl fmt::Write for Cursor {
-    fn write_str(&mut self, s: &str) -> fmt::Result {
-        for c in s.chars() {
-            self.draw_char(c);
-        }
-        Ok(())
-    }
-}
-
 static FRAMEBUFFER_REQUEST: FramebufferRequest = FramebufferRequest::new();
 static mut UI_CURSOR: Option<Cursor> = None;
 
@@ -73,6 +64,6 @@ pub extern "C" fn _start() -> ! {
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
-    println!("KERNEL PANIC: {}", info); // Removed the underscore from 'info'
+    println!("KERNEL PANIC: {}", info);
     loop { unsafe { asm!("hlt") } }
 }

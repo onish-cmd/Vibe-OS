@@ -131,3 +131,14 @@ impl Cursor {
     }
 } 
 }
+
+use core::fmt;
+
+impl fmt::Write for Cursor {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        for c in s.chars() {
+            self.draw_char(c);
+        }
+        Ok(())
+    }
+}
