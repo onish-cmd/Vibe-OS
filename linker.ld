@@ -7,33 +7,32 @@ PHDRS
     data    PT_LOAD FLAGS(6); /* 6 = Read + Write */
     dynamic PT_DYNAMIC FLAGS(6);
 }
-
 SECTIONS
 {
-    /* MOVE THIS TO THE TOP */
     . = 0xffffffff80000000;
 
-    /* Now all sections start at the high address */
-    .requests : {
-        KEEP(*(.requests_start_marker))
-        KEEP(*(.requests))
-        KEEP(*(.requests_end_marker))
-    } :data
-
+    /* 1. CODE SECTION */
     .text : {
         *(.text .text.*)
     } :text
 
-    . = ALIGN(0x1000);
+    /* FORCE ALIGNMENT TO 4KB BEFORE SWITCHING PHDR */
+    . = ALIGN(0x1000); 
 
+    /* 2. READ-ONLY DATA SECTION */
     .rodata : {
         *(.rodata .rodata.*)
     } :rodata
 
-    . = ALIGN(0x1000);
+    /* FORCE ALIGNMENT AGAIN */
+    . = ALIGN(0x1000); 
 
+    /* 3. WRITABLE DATA SECTION */
     .data : {
         *(.data .data.*)
+        *(.requests_start_marker)
+        *(.requests)
+        *(.requests_end_marker)
     } :data
 
     .bss : {
@@ -41,13 +40,9 @@ SECTIONS
         *(COMMON)
     } :data
 
+    /* 4. DYNAMIC SECTION (If needed, also aligned) */
+    . = ALIGN(0x1000);
     .dynamic : {
         KEEP(*(.dynamic))
     } :data :dynamic
-
-    /* Discard unnecessary stuff that bloats the binary */
-    /DISCARD/ : {
-        *(.eh_frame)
-        *(.note .note.*)
-    }
 }
