@@ -5,6 +5,7 @@
 extern crate limine;
 use limine::request::FramebufferRequest;
 use core::arch::asm;
+use vibe_framebuffer;
 
 static FRAMEBUFFER_REQUEST: FramebufferRequest = FramebufferRequest::new();
 static mut UI_CURSOR: Option<vibe_framebuffer::Cursor> = None;
@@ -30,10 +31,12 @@ pub extern "C" fn _start() -> ! {
 }
 
 pub fn clear_screen(color: u32) {
-    if let Some(ref mut cursor) = UI_CURSOR {
-        unsafe {
-            cursor.clear(color);
-        }
+    unsafe { 
+        if let Some(ref mut cursor) = UI_CURSOR {
+            unsafe {
+                cursor.clear(color);
+            }
+        }   
     }
 }
 
