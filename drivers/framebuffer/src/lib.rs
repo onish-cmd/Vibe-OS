@@ -66,9 +66,9 @@ impl Cursor {
             width,
             height,
             font: None,
-        }
+        };
         unsafe {
-            clear(self.color)
+            clear(self.color);
         }
     }
 
