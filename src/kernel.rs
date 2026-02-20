@@ -51,7 +51,7 @@ pub extern "C" fn _start() -> ! {
                 );
                 
                 cursor.font = Some(font); // Attach font to the local variable
-                clear_screen(cursor.color)
+                clear_screen(cursor.color);
                 UI_CURSOR = Some(cursor); // Now move it to the global static
             }
         }
