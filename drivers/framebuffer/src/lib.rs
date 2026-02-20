@@ -1,7 +1,7 @@
 // drivers/framebuffer/lib.rs
 #![no_std]
 
-pub struct Cursor {
+pub struct cursor {
     pub x: usize,
     pub y: usize,
     pub color: u32,
