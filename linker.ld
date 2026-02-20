@@ -10,13 +10,15 @@ PHDRS
 
 SECTIONS
 {
-  .requests : {
+    /* MOVE THIS TO THE TOP */
+    . = 0xffffffff80000000;
+
+    /* Now all sections start at the high address */
+    .requests : {
         KEEP(*(.requests_start_marker))
         KEEP(*(.requests))
         KEEP(*(.requests_end_marker))
     } :data
-    /* Load address for the higher half */
-    . = 0xffffffff80000000;
 
     .text : {
         *(.text .text.*)
@@ -42,4 +44,10 @@ SECTIONS
     .dynamic : {
         KEEP(*(.dynamic))
     } :data :dynamic
+
+    /* Discard unnecessary stuff that bloats the binary */
+    /DISCARD/ : {
+        *(.eh_frame)
+        *(.note .note.*)
+    }
 }
