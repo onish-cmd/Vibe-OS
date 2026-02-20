@@ -86,49 +86,47 @@ impl Cursor {
         }
     }
 
-    // Draws a single character
-    pub fn draw_char(&mut self, c: char) {
-        // Use if let to safely get the font reference
-        if let Some(ref font) = self.font {
-            let f_width = font.header.width as usize;
-            let f_height = font.header.height as usize;
-            let bytes_per_row = (font.header.width + 7) / 8;
+   pub fn draw_char(&mut self, c: char) {
+    // 1. Check for overflow BEFORE borrowing the font
+    let f_height = if let Some(ref f) = self.font { f.header.height as usize } else { 16 };
+    
+    if self.y + f_height > self.height as usize {
+        self.y = 0;
+        self.x = 0;
+        unsafe { self.clear(self.color); } // Added unsafe block
+    }
 
-            // 1. Handle Newline
-            if c == '\n' {
-                self.x = 0;
-                self.y += f_height;
-                return;
-            }
+    // 2. Now borrow the font for the actual drawing
+    if let Some(ref font) = self.font {
+        let f_width = font.header.width as usize;
+        let bytes_per_row = (font.header.width + 7) / 8;
 
-            // 2. Handle Wrapping
-            if self.x + f_width > self.width as usize {
-                self.x = 0;
-                self.y += f_height;
-            }
+        if c == '\n' {
+            self.x = 0;
+            self.y += f_height;
+            return;
+        }
 
-            if self.y + f_height > self.height as usize {
-                self.y = 0;
-                self.x = 0;
-                self.clear(self.color);
-            }
+        if self.x + f_width > self.width as usize {
+            self.x = 0;
+            self.y += f_height;
+        }
 
-            // 3. Draw the Glyph
-            let glyph = font.get_glyph(c);
-            for py in 0..font.header.height {
-                for px in 0..font.header.width {
-                    let byte_offset = (py * bytes_per_row + px / 8) as usize;
-                    let bit_offset = 7 - (px % 8);
-                    let bit_is_set = (glyph[byte_offset] >> bit_offset) & 1;
+        let glyph = font.get_glyph(c);
+        for py in 0..font.header.height {
+            for px in 0..font.header.width {
+                let byte_offset = (py * bytes_per_row + px / 8) as usize;
+                let bit_offset = 7 - (px % 8);
+                let bit_is_set = (glyph[byte_offset] >> bit_offset) & 1;
 
-                    if bit_is_set == 1 {
-                        unsafe {
-                            self.write_pixel(self.x + px as usize, self.y + py as usize, self.color_fg);
-                        }
+                if bit_is_set == 1 {
+                    unsafe {
+                        self.write_pixel(self.x + px as usize, self.y + py as usize, self.color_fg);
                     }
                 }
             }
-            self.x += f_width;
         }
+        self.x += f_width;
     }
+} 
 }
