@@ -10,3 +10,4 @@ panic = "abort"
 
 [dependencies]
 limine = "0.5.0"
+framebuffer = { path = "drivers/framebuffer" }

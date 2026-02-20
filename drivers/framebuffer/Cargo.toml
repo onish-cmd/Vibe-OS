@@ -1,0 +1,7 @@
+[package]
+name = "vibe-framebuffer"
+version = "0.1.0"
+
+[lib]
+name = "framebuffer"
+path = "src/lib.rs"
