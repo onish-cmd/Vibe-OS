@@ -18,16 +18,33 @@ extern crate alloc;
 
 use core::arch::asm;
 use core::fmt::{self, Write};
-use limine::request::{FramebufferRequest, MemoryMapRequest};
-use limine::memory_map::MemoryMapEntryType; // Correct path based on crate source
+use limine::request::{FramebufferRequest, MemoryMapRequest, RequestsEndMarker, RequestsStartMarker};
 use limine::BaseRevision;
 use linked_list_allocator::LockedHeap;
 use spleen_font::FONT_16X32;
 use vibe_framebuffer::{Cursor, Font};
 
-// Limine requires a BaseRevision tag to support modern protocol features
+// --- Limine Protocol Tags ---
 #[used]
+#[unsafe(link_section = ".requests")]
 static BASE_REVISION: BaseRevision = BaseRevision::new();
+
+#[used]
+#[unsafe(link_section = ".requests_start_marker")]
+static _START_MARKER: RequestsStartMarker = RequestsStartMarker::new();
+
+#[used]
+#[unsafe(link_section = ".requests")]
+static FRAMEBUFFER_REQUEST: FramebufferRequest = FramebufferRequest::new();
+
+#[used]
+#[unsafe(link_section = ".requests")]
+static MEMMAP_REQUEST: MemoryMapRequest = MemoryMapRequest::new();
+
+#[used]
+#[unsafe(link_section = ".requests_end_marker")]
+static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();
+// ----------------------------
 
 #[global_allocator]
 static ALLOCATOR: LockedHeap = LockedHeap::empty();
@@ -43,8 +60,6 @@ fn alloc_error_handler(layout: core::alloc::Layout) -> ! {
     panic!("VIBE OS: Heap Allocation Error - Layout: {:?}", layout);
 }
 
-static FRAMEBUFFER_REQUEST: FramebufferRequest = FramebufferRequest::new();
-static MEMMAP_REQUEST: MemoryMapRequest = MemoryMapRequest::new();
 static mut UI_CURSOR: Option<Cursor> = None;
 
 pub fn _print(args: fmt::Arguments) {
@@ -57,12 +72,10 @@ pub fn _print(args: fmt::Arguments) {
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    // Ensure the bootloader supports the base revision
-    if !BASE_REVISION.is_supported() {
-        loop { unsafe { asm!("hlt") } }
-    }
+    // Ensure Limine is happy
+    assert!(BASE_REVISION.is_supported());
 
-    // Get the response and the entries slice
+    // Fix: Accessing MemoryMapEntryType directly from the response module
     let memmap_response = MEMMAP_REQUEST.get_response().as_ref().expect("Memmap request failed");
     let entries = memmap_response.entries(); 
     
@@ -70,9 +83,8 @@ pub extern "C" fn _start() -> ! {
     let mut heap_addr: u64 = 0;
 
     for entry in entries {
-        // In this version of the crate, the field is 'entry_type' or 'typ'
-        // Based on common limine-rust bindings, it is usually 'entry_type'
-        if entry.entry_type == MemoryMapEntryType::USABLE && entry.length >= heap_size as u64 {
+        // We use the full path to the Enum here to avoid unresolved imports
+        if entry.entry_type == limine::response::MemoryMapEntryType::USABLE && entry.length >= heap_size as u64 {
             heap_addr = entry.base;
             break;
         }
@@ -89,7 +101,6 @@ pub extern "C" fn _start() -> ! {
             if let Some(fb) = fb_response.framebuffers().next() {
                 let font = Font::new(FONT_16X32);
                 
-                // Cursor::new(pixel_ptr, back_ptr, width, height)
                 let mut cursor = Cursor::new(
                     fb.addr() as *mut u32, 
                     core::ptr::null_mut(), 
@@ -98,7 +109,7 @@ pub extern "C" fn _start() -> ! {
                 );
 
                 cursor.font = Some(font);
-                cursor.clear(0x1a1b26); // Tokyo Night
+                cursor.clear(0x1a1b26); // Tokyo Night "Night"
                 UI_CURSOR = Some(cursor);
             }
         }
@@ -113,9 +124,7 @@ pub extern "C" fn _start() -> ! {
 
     println!("Heap Initialized! Data: {} {}", vibe_list[0], vibe_list[1]);
 
-    loop {
-        unsafe { asm!("hlt") }
-    }
+    hcf();
 }
 
 #[panic_handler]
@@ -129,7 +138,16 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
             println!("{}", info);
         }
     }
+    hcf();
+}
+
+fn hcf() -> ! {
     loop {
-        unsafe { asm!("hlt") }
+        unsafe {
+            #[cfg(target_arch = "x86_64")]
+            asm!("hlt");
+            #[cfg(any(target_arch = "aarch64", target_arch = "riscv64"))]
+            asm!("wfi");
+        }
     }
 }
