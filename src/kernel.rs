@@ -3,7 +3,6 @@
 #![no_main]
 
 extern crate limine;
-extern crate vibe_framebuffer;
 use limine::request::FramebufferRequest;
 use core::arch::asm;
 
