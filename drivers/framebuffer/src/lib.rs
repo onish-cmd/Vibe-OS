@@ -158,7 +158,9 @@ impl Cursor {
                 for px in 0..f_width {
                     let byte = temp_glyph[py * bpr + px / 8];
                     if (byte >> (7 - (px % 8))) & 1 == 1 {
-                        unsafe { self.write_pixel(start_x + px, start_y + py, fg); }
+                        unsafe {
+                            self.write_pixel(start_x + px, start_y + py, fg);
+                        }
                     }
                 }
             }

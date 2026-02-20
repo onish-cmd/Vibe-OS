@@ -13,12 +13,14 @@ macro_rules! println {
     ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
 }
 
-extern crate limine;
 extern crate alloc;
+extern crate limine;
 
 use core::arch::asm;
 use core::fmt::{self, Write};
-use limine::request::{FramebufferRequest, MemoryMapRequest, RequestsEndMarker, RequestsStartMarker};
+use limine::request::{
+    FramebufferRequest, MemoryMapRequest, RequestsEndMarker, RequestsStartMarker,
+};
 use limine::BaseRevision;
 use linked_list_allocator::LockedHeap;
 use spleen_font::FONT_16X32;
@@ -76,20 +78,32 @@ pub extern "C" fn _start() -> ! {
     assert!(BASE_REVISION.is_supported());
 
     // Fix: Accessing MemoryMapEntryType directly from the response module
-    let memmap_response = MEMMAP_REQUEST.get_response().as_ref().expect("Memmap request failed");
-    let entries = memmap_response.entries(); 
-    
+    let memmap_response = unsafe {
+        MEMMAP_REQUEST
+            .get_response()
+            .as_ref()
+            .expect("Memmap request failed")
+    };
+    let entries = memmap_response.entries();
+
+    let entries = unsafe {
+        memmap_response
+            .get_memory_map()
+            .expect("Failed to get memory map entries")
+    };
+
     let heap_size = 32 * 1024 * 1024;
     let mut heap_addr: u64 = 0;
 
     for entry in entries {
-        // We use the full path to the Enum here to avoid unresolved imports
-        if entry.entry_type == limine::response::MemoryMapEntryType::USABLE && entry.length >= heap_size as u64 {
+        if entry.typ == limine::structures::memory_map_entry::MemoryMapEntryType::Usable
+            && entry.length >= heap_size as u64
+        {
             heap_addr = entry.base;
             break;
         }
     }
-    
+
     if heap_addr == 0 {
         panic!("Could not find enough RAM for Vibe OS heap!");
     }
@@ -100,12 +114,12 @@ pub extern "C" fn _start() -> ! {
         if let Some(fb_response) = FRAMEBUFFER_REQUEST.get_response() {
             if let Some(fb) = fb_response.framebuffers().next() {
                 let font = Font::new(FONT_16X32);
-                
+
                 let mut cursor = Cursor::new(
-                    fb.addr() as *mut u32, 
-                    core::ptr::null_mut(), 
-                    fb.width(), 
-                    fb.height()
+                    fb.addr() as *mut u32,
+                    core::ptr::null_mut(),
+                    fb.width(),
+                    fb.height(),
                 );
 
                 cursor.font = Some(font);
