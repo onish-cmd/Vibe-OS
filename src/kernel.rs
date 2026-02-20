@@ -14,22 +14,26 @@ macro_rules! println {
 }
 
 extern crate limine;
-extern crate alloc; // Moved here for global visibility
+extern crate alloc;
 
 use core::arch::asm;
 use core::fmt::{self, Write};
 use limine::request::{FramebufferRequest, MemoryMapRequest};
-use limine::response::MemoryMapEntryType; // Correct path for 0.5.x
+use limine::memory_map::MemoryMapEntryType; // Correct path based on crate source
+use limine::BaseRevision;
 use linked_list_allocator::LockedHeap;
 use spleen_font::FONT_16X32;
 use vibe_framebuffer::{Cursor, Font};
+
+// Limine requires a BaseRevision tag to support modern protocol features
+#[used]
+static BASE_REVISION: BaseRevision = BaseRevision::new();
 
 #[global_allocator]
 static ALLOCATOR: LockedHeap = LockedHeap::empty();
 
 pub fn init_heap(start: usize, size: usize) {
     unsafe {
-        // Fix: linked_list_allocator needs a raw pointer *mut u8
         ALLOCATOR.lock().init(start as *mut u8, size);
     }
 }
@@ -51,26 +55,24 @@ pub fn _print(args: fmt::Arguments) {
     }
 }
 
-pub fn clear_screen(color: u32) {
-    unsafe {
-        if let Some(ref mut cursor) = UI_CURSOR {
-            cursor.clear(color);
-        }
-    }
-}
-
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    // Fix: .get_response() returns an Option, need as_ref() and unwrap
+    // Ensure the bootloader supports the base revision
+    if !BASE_REVISION.is_supported() {
+        loop { unsafe { asm!("hlt") } }
+    }
+
+    // Get the response and the entries slice
     let memmap_response = MEMMAP_REQUEST.get_response().as_ref().expect("Memmap request failed");
-    let memmap = memmap_response.memmap();
+    let entries = memmap_response.entries(); 
     
     let heap_size = 32 * 1024 * 1024;
     let mut heap_addr: u64 = 0;
 
-    for entry in memmap {
-        // Fix: Use the corrected enum path from limine::response
-        if entry.typ == MemoryMapEntryType::USABLE && entry.len >= heap_size as u64 {
+    for entry in entries {
+        // In this version of the crate, the field is 'entry_type' or 'typ'
+        // Based on common limine-rust bindings, it is usually 'entry_type'
+        if entry.entry_type == MemoryMapEntryType::USABLE && entry.length >= heap_size as u64 {
             heap_addr = entry.base;
             break;
         }
@@ -80,7 +82,6 @@ pub extern "C" fn _start() -> ! {
         panic!("Could not find enough RAM for Vibe OS heap!");
     }
 
-    // Fix: Using the local init_heap function instead of searching for a module
     init_heap(heap_addr as usize, heap_size);
 
     unsafe {
@@ -88,7 +89,7 @@ pub extern "C" fn _start() -> ! {
             if let Some(fb) = fb_response.framebuffers().next() {
                 let font = Font::new(FONT_16X32);
                 
-                // Fix: Added null_mut() for the back_ptr argument your driver requires
+                // Cursor::new(pixel_ptr, back_ptr, width, height)
                 let mut cursor = Cursor::new(
                     fb.addr() as *mut u32, 
                     core::ptr::null_mut(), 
@@ -97,7 +98,7 @@ pub extern "C" fn _start() -> ! {
                 );
 
                 cursor.font = Some(font);
-                cursor.clear(0x1a1b26); // Tokyo Night Background
+                cursor.clear(0x1a1b26); // Tokyo Night
                 UI_CURSOR = Some(cursor);
             }
         }
@@ -121,10 +122,8 @@ pub extern "C" fn _start() -> ! {
 fn panic(info: &core::panic::PanicInfo) -> ! {
     unsafe {
         if let Some(ref mut cursor) = UI_CURSOR {
-            // Tokyo Night "Storm" Red
             cursor.color_fg = 0xf7768e;
-            // Ensure x/y are reset so the panic is visible
-            cursor.x = 0; 
+            cursor.x = 0;
             println!("\n[ VIBE OS FATAL ERROR ]");
             println!("------------------------");
             println!("{}", info);
