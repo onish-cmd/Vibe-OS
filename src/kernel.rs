@@ -162,6 +162,8 @@ pub extern "C" fn _start() -> ! {
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
+    let fb_addr = fb.addr() as *mut u32;
+    let size = (fb.width() * fb.height()) as usize;
     unsafe {
         for i in 0..size {
             *fb_addr.add(i) = 0xf7768e;
