@@ -102,23 +102,32 @@ pub extern "C" fn _start() -> ! {
 
     if heap_virt_addr == 0 { hcf(); }
     init_heap(heap_virt_addr as usize, heap_size);
-
-    // --- 3. Initialize Framebuffer ---
+// --- 3. Initialize Framebuffer ---
     if let Some(fb_response) = FRAMEBUFFER_REQUEST.get_response().as_ref() {
         if let Some(fb) = fb_response.framebuffers().next() {
-            // Static font to avoid stack copies
             let font = Font::new(FONT_16X32);
+
+            // Calculate buffer size: Width * Height * 4 (for u32 pixels)
+            let buffer_size = (fb.width() * fb.height() * 4) as usize;
             
             unsafe {
-                // Use the physical address directly from fb.addr() as Limine maps it
+                // ALLOCATE BACKBUFFER FROM HEAP
+                let layout = core::alloc::Layout::from_size_align(buffer_size, 4096).unwrap();
+                let backbuffer_ptr = alloc::alloc::alloc(layout) as *mut u32;
+
+                if backbuffer_ptr.is_null() {
+                    hcf(); // If allocation fails, stop.
+                }
+
                 let mut cursor = Cursor::new(
-                    fb.addr() as *mut u32, 
-                    core::ptr::null_mut(), 
-                    fb.width(), 
+                    fb.addr() as *mut u32,
+                    backbuffer_ptr, // THE REAL BACKBUFFER
+                    fb.width(),
                     fb.height()
                 );
+                
                 cursor.font = Some(font);
-                cursor.clear(0x1a1b26); // Tokyo Night
+                cursor.clear(0x1a1b26);
                 UI_CURSOR = Some(cursor);
             }
         }

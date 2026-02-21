@@ -87,6 +87,7 @@ impl Cursor {
             *self.backbuffer_ptr.add(i) = color;
         }
         self.dirty = true;
+        self.blit()
     }
 
     pub unsafe fn write_pixel(&mut self, x: usize, y: usize, color: u32) {
@@ -94,6 +95,7 @@ impl Cursor {
             *self.backbuffer_ptr.add(y * self.width + x) = color;
             self.dirty = true;
         }
+        self.blit()
     }
 
     pub fn scroll_up(&mut self) {
@@ -115,6 +117,7 @@ impl Cursor {
         }
         self.y -= f_height;
         self.dirty = true;
+        unsafe { self.blit() }
     }
     pub fn draw_char(&mut self, c: char) {
         // 1. Get metrics and the GLYPH DATA first, then drop the borrow
