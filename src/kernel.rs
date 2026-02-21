@@ -114,19 +114,29 @@ pub extern "C" fn _start() -> ! {
             core::ptr::write_volatile(fb_addr.add(i), 0xffff00);
         }
     }
-
-    // --- MEMMAP STAGE ---
-    let memmap_binding = MEMMAP_REQUEST.get_response();
-    let memmap_response = memmap_binding.as_ref().expect("Memmap Failed");
-
-    let heap_size = 16 * 1024 * 1024;
+// --- STAGE: DYNAMIC HEAP SEARCH ---
     let mut heap_virt_addr: u64 = 0;
+    let heap_size = 16 * 1024 * 1024; 
 
-    for entry in memmap_response.entries() {
+    for (i, entry) in memmap_response.entries().iter().enumerate() {
+        // DRAW A TINY SQUARES FOR EACH ENTRY
+        // Green = Usable, Red = Reserved/Other
+        let color = if entry.entry_type == EntryType::USABLE { 0x9ece6a } else { 0xf7768e };
+        unsafe {
+            for x in (i * 30)..(i * 30 + 25) {
+                for y in 100..120 { // Draw below your debug bars
+                    core::ptr::write_volatile(fb_addr.add(y * width + x), color);
+                }
+            }
+        }
+
         if entry.entry_type == EntryType::USABLE && entry.base >= 0x1000000 {
             if entry.length >= heap_size as u64 {
-                heap_virt_addr = entry.base + hhdm_offset;
-                break;
+                // Check if this physical address is likely mapped (Stay low for now)
+                if entry.base < 0x80000000 { // Stay below 2GB
+                    heap_virt_addr = entry.base + hhdm_offset;
+                    // Don't break yet, let's draw all the squares first
+                }
             }
         }
     }
