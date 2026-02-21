@@ -35,7 +35,7 @@ static _START_MARKER: RequestsStartMarker = RequestsStartMarker::new();
 // This prevents the font initialization from blowing out the stack.
 #[used]
 #[unsafe(link_section = ".requests")]
-static STACK_SIZE_REQUEST: StackSizeRequest = StackSizeRequest::new().with_stack_size(0x10000);
+static STACK_SIZE_REQUEST: StackSizeRequest = StackSizeRequest::new().with_size(0x10000);
 
 #[used]
 #[unsafe(link_section = ".requests")]
@@ -82,9 +82,10 @@ pub extern "C" fn _start() -> ! {
         .offset();
 
     // --- 2. Initialize Heap Safely ---
-    let memmap_response = MEMMAP_REQUEST.get_response()
-        .as_ref()
-        .expect("VIBE ERROR: Memmap failed");
+    let response_binding = MEMMAP_REQUEST.get_response();
+    
+    // 2. Now borrow from that binding
+    let memmap_response = response_binding.as_ref().expect("VIBE ERROR: Memmap failed");
     
     let heap_size = 16 * 1024 * 1024; // Lowered to 16MB for stability
     let mut heap_virt_addr: u64 = 0;
