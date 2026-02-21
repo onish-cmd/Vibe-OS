@@ -114,15 +114,15 @@ pub extern "C" fn _start() -> ! {
                 // ALLOCATE BACKBUFFER FROM HEAP
                 let layout = core::alloc::Layout::from_size_align(buffer_size, 4096).unwrap();
                 let backbuffer_ptr = alloc::alloc::alloc(layout) as *mut u32;
+                let fb_addr = fb.addr() as *mut u32;
 
                 if backbuffer_ptr.is_null() {
                     for i in 0..(fb.width * fb.height) {
-                        *self.backbuffer_ptr.add(i) = 0xf7768e;
+                        fb_addr.add(i) = 0xf7768e;
                     }
                     hcf(); // If allocation fails, stop.
                 }
 
-                let fb_addr = fb.addr() as *mut u32;
                 let mut cursor = Cursor::new(
                     fb_addr,
                     fb_addr, // THE REAL BACKBUFFER
