@@ -140,8 +140,14 @@ pub extern "C" fn _start() -> ! {
 
     if heap_virt_addr == 0 { hcf(); }
 
+
+    unsafe {
+        let test_ptr = heap_virt_addr as *mut u64;
+        core::ptr::write_volatile(test_ptr, 0xCAFEBABEDEADBEEF);
+        let _test_val = core::ptr::read_volatile(test_ptr);
+    }
     // --- HEAP INIT STAGE ---
-    init_heap(heap_virt_addr as usize, heap_size);
+    init_heap(heap_virt_addr as usize, 1 * 1024 * 1024);
 
     // BAR 4: GREEN (Heap Initialized without hanging!)
     unsafe {
