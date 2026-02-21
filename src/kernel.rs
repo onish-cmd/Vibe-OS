@@ -82,6 +82,15 @@ pub fn _print(args: fmt::Arguments) {
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
+    assert!(BASE_REVISION.is_supported());
+
+    // Get HHDM Offset safely
+    let hhdm_offset = HHDM_REQUEST
+        .get_response()
+        .as_ref()
+        .expect("VIBE ERROR: HHDM failed")
+        .offset();
+
 
     if let Some(fb_response) = FRAMEBUFFER_REQUEST.get_response().as_ref() {
         if let Some(fb) = fb_response.framebuffers().next() {
@@ -94,15 +103,6 @@ pub extern "C" fn _start() -> ! {
             }
         }
     }
-
-    assert!(BASE_REVISION.is_supported());
-
-    // Get HHDM Offset safely
-    let hhdm_offset = HHDM_REQUEST
-        .get_response()
-        .as_ref()
-        .expect("VIBE ERROR: HHDM failed")
-        .offset();
 
     // --- 2. Initialize Heap Safely ---
     let response_binding = MEMMAP_REQUEST.get_response();
