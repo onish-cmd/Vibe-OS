@@ -117,7 +117,7 @@ pub extern "C" fn _start() -> ! {
                 let fb_addr = fb.addr() as *mut u32;
 
                 if backbuffer_ptr.is_null() {
-                    for i in 0..(fb.width * fb.height) {
+                    for i in 0..(fb.width() * fb.height()) {
                         fb_addr.add(i) = 0xf7768e;
                     }
                     hcf(); // If allocation fails, stop.
@@ -125,7 +125,7 @@ pub extern "C" fn _start() -> ! {
 
                 let mut cursor = Cursor::new(
                     fb_addr,
-                    fb_addr, // THE REAL BACKBUFFER
+                    fb_addr, // Temporary fix, add real backbuffer later.
                     fb.width(),
                     fb.height()
                 );
