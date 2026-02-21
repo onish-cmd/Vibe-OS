@@ -17,8 +17,6 @@ use linked_list_allocator::LockedHeap;
 use spleen_font::FONT_16X32;
 use vibe_framebuffer::{Cursor, Font};
 
-// --- Limine Requests ---
-
 #[used]
 #[unsafe(link_section = ".requests")]
 static BASE_REVISION: BaseRevision = BaseRevision::new();
@@ -46,8 +44,6 @@ static HHDM_REQUEST: HhdmRequest = HhdmRequest::new();
 #[used]
 #[unsafe(link_section = ".requests_end_marker")]
 static _END_MARKER: RequestsEndMarker = RequestsEndMarker::new();
-
-// --- Global Allocator ---
 
 #[global_allocator]
 static ALLOCATOR: LockedHeap = LockedHeap::empty();
@@ -83,101 +79,78 @@ fn alloc_error_handler(layout: core::alloc::Layout) -> ! {
     panic!("VIBE OS: Heap Allocation Error - Layout: {:?}", layout);
 }
 
-// --- Entry Point ---
-
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     assert!(BASE_REVISION.is_supported());
 
-    // --- INITIAL DEBUG SETUP ---
-    // Fetch FB early to draw bars. If this fails, we stay black.
+    // 1. Initial FB Setup
     let fb_binding = FRAMEBUFFER_REQUEST.get_response();
     let fb_res = fb_binding.as_ref().expect("FB Failed");
-    let fb = fb_res.framebuffers().next().expect("No FB found");
+    let fb = fb_res.framebuffers().next().expect("No FB");
     let fb_addr = fb.addr() as *mut u32;
     let width = fb.width() as usize;
 
-    // BAR 1: WHITE (Kernel Reached _start)
-    unsafe {
-        for i in 0..(width * 20) {
-            core::ptr::write_volatile(fb_addr.add(i), 0xffffff);
-        }
-    }
+    // BAR 1: WHITE
+    unsafe { for i in 0..(width * 20) { core::ptr::write_volatile(fb_addr.add(i), 0xffffff); } }
 
-    // --- HHDM STAGE ---
+    // 2. HHDM Setup
     let hhdm_binding = HHDM_REQUEST.get_response();
     let hhdm_offset = hhdm_binding.as_ref().expect("HHDM Failed").offset();
 
-    // BAR 2: YELLOW (HHDM Offset Acquired)
-    unsafe {
-        for i in (width * 20)..(width * 40) {
-            core::ptr::write_volatile(fb_addr.add(i), 0xffff00);
-        }
-    }
-// --- STAGE: DYNAMIC HEAP SEARCH ---
-    let mut heap_virt_addr: u64 = 0;
-    let heap_size = 16 * 1024 * 1024; 
+    // BAR 2: YELLOW
+    unsafe { for i in (width * 20)..(width * 40) { core::ptr::write_volatile(fb_addr.add(i), 0xffff00); } }
 
+    // 3. Memmap & Visual Debugger
+    let memmap_binding = MEMMAP_REQUEST.get_response();
+    let memmap_response = memmap_binding.as_ref().expect("Memmap Failed");
+
+    let heap_size = 16 * 1024 * 1024;
+    let mut heap_virt_addr: u64 = 0;
+
+    // Iterate through entries to draw debug squares and find heap
     for (i, entry) in memmap_response.entries().iter().enumerate() {
-        // DRAW A TINY SQUARES FOR EACH ENTRY
-        // Green = Usable, Red = Reserved/Other
+        // Draw squares: Green = Usable, Red = Reserved
         let color = if entry.entry_type == EntryType::USABLE { 0x9ece6a } else { 0xf7768e };
         unsafe {
-            for x in (i * 30)..(i * 30 + 25) {
-                for y in 100..120 { // Draw below your debug bars
+            for x in (i * 30)..(i * 30 + 20) {
+                for y in 100..120 {
                     core::ptr::write_volatile(fb_addr.add(y * width + x), color);
                 }
             }
         }
 
-        if entry.entry_type == EntryType::USABLE && entry.base >= 0x1000000 {
+        // Logic to pick the heap
+        if entry.entry_type == EntryType::USABLE && entry.base >= 0x1000000 && heap_virt_addr == 0 {
             if entry.length >= heap_size as u64 {
-                // Check if this physical address is likely mapped (Stay low for now)
-                if entry.base < 0x80000000 { // Stay below 2GB
-                    heap_virt_addr = entry.base + hhdm_offset;
-                    // Don't break yet, let's draw all the squares first
-                }
+                heap_virt_addr = entry.base + hhdm_offset;
             }
         }
     }
 
-    // BAR 3: BLUE (Memory Chunk Found)
-    unsafe {
-        for i in (width * 40)..(width * 60) {
-            core::ptr::write_volatile(fb_addr.add(i), 0x0000ff);
-        }
-    }
+    // BAR 3: BLUE
+    unsafe { for i in (width * 40)..(width * 60) { core::ptr::write_volatile(fb_addr.add(i), 0x0000ff); } }
 
     if heap_virt_addr == 0 { hcf(); }
 
+    // TEST WRITE: If it hangs here, the page is not mapped!
+    unsafe { core::ptr::write_volatile(heap_virt_addr as *mut u8, 0xAA); }
 
-    unsafe {
-        let test_ptr = heap_virt_addr as *mut u64;
-        core::ptr::write_volatile(test_ptr, 0xCAFEBABEDEADBEEF);
-        let _test_val = core::ptr::read_volatile(test_ptr);
-    }
-    // --- HEAP INIT STAGE ---
-    init_heap(heap_virt_addr as usize, 1 * 1024 * 1024);
+    init_heap(heap_virt_addr as usize, heap_size);
 
-    // BAR 4: GREEN (Heap Initialized without hanging!)
-    unsafe {
-        for i in (width * 60)..(width * 80) {
-            core::ptr::write_volatile(fb_addr.add(i), 0x00ff00);
-        }
-    }
+    // BAR 4: GREEN
+    unsafe { for i in (width * 60)..(width * 80) { core::ptr::write_volatile(fb_addr.add(i), 0x00ff00); } }
 
-    // --- FINAL UI SETUP ---
+    // Final UI
     let font = Font::new(FONT_16X32);
     unsafe {
-        // DIRECT DRAWING to avoid backbuffer blit errors for now
         let mut cursor = Cursor::new(fb_addr, fb_addr, fb.width(), fb.height());
         cursor.font = Some(font);
-        cursor.clear(0x1a1b26); // Tokyo Night
+        cursor.clear(0x1a1b26);
         UI_CURSOR = Some(cursor);
     }
 
-    println!("Vibe OS: Diagnostic Boot Complete.");
-    println!("Dynamic Heap @ {:#x}", heap_virt_addr);
+    println!("Vibe OS: Dynamic Heap Active!");
+    println!("Heap Base: {:#x}", heap_virt_addr);
 
     hcf();
 }
@@ -189,13 +162,12 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
             cursor.color_fg = 0xf7768e;
             println!("\nPANIC: {}", info);
         } else {
-            // Emergency Red Screen if UI isn't ready
-            if let Some(fb_response) = FRAMEBUFFER_REQUEST.get_response().as_ref() {
-                if let Some(fb) = fb_response.framebuffers().next() {
-                    let fb_addr = fb.addr() as *mut u32;
-                    let size = (fb.width() * fb.height()) as usize;
-                    for i in 0..size {
-                        core::ptr::write_volatile(fb_addr.add(i), 0xf7768e);
+            // Emergency Red
+            if let Some(fb_res) = FRAMEBUFFER_REQUEST.get_response().as_ref() {
+                if let Some(fb) = fb_res.framebuffers().next() {
+                    let addr = fb.addr() as *mut u32;
+                    for i in 0..(fb.width() * fb.height()) as usize {
+                        core::ptr::write_volatile(addr.add(i), 0xf7768e);
                     }
                 }
             }
@@ -205,7 +177,5 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 }
 
 fn hcf() -> ! {
-    loop {
-        unsafe { asm!("hlt") }
-    }
+    loop { unsafe { asm!("hlt") } }
 }
