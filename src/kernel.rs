@@ -116,6 +116,9 @@ pub extern "C" fn _start() -> ! {
                 let backbuffer_ptr = alloc::alloc::alloc(layout) as *mut u32;
 
                 if backbuffer_ptr.is_null() {
+                    for i in 0..(fb.width * fb.height) {
+                        *self.backbuffer_ptr.add(i) = 0xf7768e;
+                    }
                     hcf(); // If allocation fails, stop.
                 }
 
