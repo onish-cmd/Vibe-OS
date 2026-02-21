@@ -91,19 +91,6 @@ pub extern "C" fn _start() -> ! {
         .expect("VIBE ERROR: HHDM failed")
         .offset();
 
-
-    if let Some(fb_response) = FRAMEBUFFER_REQUEST.get_response().as_ref() {
-        if let Some(fb) = fb_response.framebuffers().next() {
-            let fb_addr = fb.addr() as *mut u32;
-            unsafe {
-                // Write 500 lines of white pixels
-                for i in 0..(fb.width() * 500) as usize {
-                    core::ptr::write_volatile(fb_addr.add(i), 0xffffff);
-                }
-            }
-        }
-    }
-
     // --- 2. Initialize Heap Safely ---
     let response_binding = MEMMAP_REQUEST.get_response();
 
@@ -129,6 +116,18 @@ pub extern "C" fn _start() -> ! {
         hcf();
     }
     init_heap(heap_virt_addr as usize, heap_size);
+
+    if let Some(fb_response) = FRAMEBUFFER_REQUEST.get_response().as_ref() {
+        if let Some(fb) = fb_response.framebuffers().next() {
+            let fb_addr = fb.addr() as *mut u32;
+            unsafe {
+                // Write 500 lines of white pixels
+                for i in 0..(fb.width() * 500) as usize {
+                    core::ptr::write_volatile(fb_addr.add(i), 0xffffff);
+                }
+            }
+        }
+    }
     // --- 3. Initialize Framebuffer ---
     if let Some(fb_response) = FRAMEBUFFER_REQUEST.get_response().as_ref() {
         if let Some(fb) = fb_response.framebuffers().next() {
